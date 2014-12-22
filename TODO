@@ -1,0 +1,4 @@
+Images
+Cleanup parsing to use streams or buffers exclusively?
+Cleanup code to satisfy jshint
+Add PDFObject compression support Should be as simple as setting a flag and compressing on write
