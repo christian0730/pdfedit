@@ -178,7 +178,7 @@ var PDF = function(){
 		var pageIndex = {}
 		for(var i in self.objects)
 		{
-			var obj = self.objects[i]
+			var obj = self.objects[i]4
 			var md = obj.metadata
 			if(md.Type && md.Type.match(/Pages/))
 				pageIndex = obj;
@@ -324,6 +324,32 @@ var PDF = function(){
 		}
 		call(ret);
 		return ret;
+	}
+
+	self.fillForm = function(obj)
+	{
+		obj = obj || {}
+		var nobj = {}
+		for(var i in obj)
+		{
+			var v = obj[i]
+			if(v.slice(0,1) != '/')
+				'('+obj[i]+')'
+			nobj['('+i+')'] = v
+		}
+		obj = nobj
+		var fields = self.findObjsByField('FT')
+		for(var i in fields)
+		{
+			var field = fields[i]
+			var md = field.metadata
+			if(obj[md.T])
+			{
+				md.V = obj[md.T]
+				md.DA = md.DA.replace('/ ','/') // Bugfix, this is going to be a tricky fix in the Dictionary Parser
+				field.imported = false // Force to be *saved* to PDF
+			}
+		}
 	}
 }
 

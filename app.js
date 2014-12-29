@@ -87,7 +87,7 @@ function formTesting()
 		//pdf.objects[field.id] = field
 	}
 	/**/
-	fillForm(pdf,{
+	pdf.fillForm({
 		"Address 1 Text Box": "Address 1 New Value",
 		"Country Combo Box": "Country New Value",
 		"Driving License Check Box":"/Yes"
@@ -95,32 +95,6 @@ function formTesting()
 	console.log('Saving')
 	pdf.save('formTest_output.pdf',log)
 	console.log('Saved')
-}
-
-function fillForm(pdf,obj)
-{
-	obj = obj || {}
-	var nobj = {}
-	for(var i in obj)
-	{
-		var v = obj[i]
-		if(v.slice(0,1) != '/')
-			'('+obj[i]+')'
-		nobj['('+i+')'] = v
-	}
-	obj = nobj
-	var fields = pdf.findObjsByField('FT')
-	for(var i in fields)
-	{
-		var field = fields[i]
-		var md = field.metadata
-		if(obj[md.T])
-		{
-			md.V = obj[md.T]
-			md.DA = md.DA.replace('/ ','/') // Bugfix, this is going to be a tricky fix in the Dictionary Parser
-			field.imported = false // Force to be *saved* to PDF
-		}
-	}
 }
 
 function noop(){}
