@@ -2,3 +2,5 @@ Images
 Cleanup parsing to use streams or buffers exclusively?
 Cleanup code to satisfy jshint
 Add PDFObject compression support Should be as simple as setting a flag and compressing on write
+Investigate form filling, should be as simple as setting V property on /FT objects.
+- Form filling does work on forms, need to make a simple JSON mapping function for it.

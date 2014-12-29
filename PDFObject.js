@@ -29,15 +29,28 @@ function PDFObject(buffer){
 		self.id = m[1]
 		self.revision = m[2]
 		var ind = m[0].length + 1;
-		while(!~["\n","\r"].indexOf(buffer.slice(ind,ind+1).toString()))
-			ind++
-		metabuf = buffer.slice(m[0].length + 1,ind+1)
-		self.metadata = dictionaryParser.parse(metabuf.toString())
-		if(self.metadata.Length)
-		{
-			ind += 2
-			self.raw = buffer.slice(ind,ind+self.metadata.Length);
+		//while(!~["\n","\r"].indexOf(buffer.slice(ind,ind+1).toString()))
+		//	ind++
+		if(buffer.slice(ind,ind+8).toString().match(/\<|\[|\(/))
+		{	
+			ind = dictionaryParser.scanForEnd(buffer,m[0].length + 1)
+			metabuf = buffer.slice(m[0].length + 1,ind)
+			console.log(buffer.length)
+			self.metadata = dictionaryParser.parse(metabuf)
 		}
+		var start = ind;
+		while(buffer.slice(ind,ind+6) != 'endobj' && ind < buffer.length)
+			ind++
+		//if()//self.metadata.Length)
+		{
+			start += 2
+			if(self.metadata && self.metadata.Length)
+				self.raw = buffer.slice(start,start+self.metadata.Length);
+			else
+				self.raw = buffer.slice(start,ind);
+		}
+		
+
 		//console.log(self.metadata,self.raw)
 	}
 	self.encode = function(){
@@ -52,6 +65,7 @@ function PDFObject(buffer){
 		return ret;
 	}
 	self.init()
+	return self
 }
 
 module.exports = PDFObject

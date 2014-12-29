@@ -2,12 +2,13 @@ var PDFObject = require('./PDFObject')
 var ENDL = process.env.ENDL || "\n"
 var fontwidths = require('./fontWidths.js')
 
-var Page = function(buffer){
-	var self = new PDFObject(buffer)
+var Page = function(buffer,base){
+	var self = base || new PDFObject(buffer)
 	self.translateStack = [];
 	self.textStream = ''
 	self.font = ''
 	self.fontSize = 0
+	self.translatePos = {x:0, y:0};
 	
 	self.resetTranslate = function(){
 		while(self.translateStack.length)
@@ -15,26 +16,41 @@ var Page = function(buffer){
 	}
 
 	self.translate = function(x,y){
+		x = x.toFixed(0)
+		y = y.toFixed(0)
+		self.translatePos.x += parseInt(x);
+		self.translatePos.y += parseInt(y);
 		self.writeln(x,y,'Td')
 	}
 
+	self.translateTo = function(x,y){
+		var dx = x - self.translatePos.x
+		var dy = y - self.translatePos.y
+		self.translate(dx,dy)
+	}
+
 	self.save = function(){
+		self.translateStack.push(self.translatePos)
+		self.translatePos = { x: self.translatePos.x, y: self.translatePos.y}
 		self.writeln('q')
 	}
+
 	self.restore = function(){
 		self.writeln('Q')
+		var pos = self.translateStack.pop()
+		self.translateTo(pos.x,pos.y)
 	}
 
 	self.beginTranslate = function(x,y){
 		self.save()
-		self.translateStack.push([x,y])
 		self.translate(x,y)
+		console.log('TRANSLATE','PUSH',x,y,self.translateStack)
 	}
 	
-	self.endTranslate = function(x,y){
-		var pos = self.translateStack.pop()
-		self.translate(-pos[0],-pos[1])
+	self.endTranslate = function(){
+		console.log('TRANSLATE','POP',self.translateStack)
 		self.restore()
+		self.translateTo(self.translatePos.x,self.translatePos.y)
 	}
 
 	self.write = function(){
@@ -46,9 +62,25 @@ var Page = function(buffer){
 		self.write(text + ENDL)
 	}
 
+	self.printLines = function(text,x,y){
+		var spacing = self.fontSize + 2
+		text = text.toString()
+		text = text.replace("\r\n","\n")
+		text = text.replace("\r","\n")
+		var lines = text.split("\n")
+		y -= lines.length * spacing
+		for(var i=lines.length;i>=0;i--)	
+		{
+			self.print(lines[i],x,y);
+			y += spacing
+		}
+	}
+
 	self.print = function(text,x,y){
+		//console.log('PRINT',text,x,y)
 		if(x || y)
 			self.beginTranslate(x,y)
+			//self.translateTo(x,y)
 		self.writeln('('+text+')','Tj');
 		if(x || y)
 			self.endTranslate()
@@ -69,33 +101,43 @@ var Page = function(buffer){
 	}
 
 	self.drawRect = function(x,y,w,h){
+		//x += self.translatePos.x
+		//y += self.translatePos.y
 		self.writeln(x,y,w,h,'re h S')
 	}
 
 	self.drawFilledRect = function(x,y,w,h){
+		//x += self.translatePos.x
+		//y += self.translatePos.y
 		self.writeln(x,y,w,h,'re h F')
 	}
 
 	self.drawFrame = function(x,y,w,title,text){
+		console.warn('drawFrame is currently broken/subject to change')
 		var fs = 8//self.fontSize
+		console.log(self.translatePos)
+		self.translateTo(x,y)
+		var pos = self.translatePos;
+		console.log(self.translatePos)
 		self.save()
-		self.setStrokeColor(0,0,0)
-		self.setFillColor(1,1,1)
-		self.setFont('HelB',fs)
-		w = w || self.calcWidth(text) + 10
-		self.setFont('Hel',fs-1)
-		var titleWidth = self.calcWidth(title)
-		self.drawRect(x,y,w,fs + 5)
-		self.drawFilledRect(x+5,y+fs+3,titleWidth+2,7)
-		self.drawRect(x+5,y+fs+3,titleWidth+2,7)
+			self.setFont('Hel',fs-1)
+			var titleWidth = self.calcWidth(title)
+			
+			self.setStrokeColor(0,0,0)
+			self.setFillColor(1,1,1)
+			
+			self.drawRect(pos.x,pos.y,w,fs + 5)
+			self.drawFilledRect(pos.x + 5,pos.y + fs + 3,titleWidth + 2,7)
+			self.drawRect(pos.x + 5,pos.y + fs + 3,titleWidth + 2,7)
 		self.restore()
-		self.save()
-		self.setFont('Hel',fs-1)
-		self.print(title,x+7,y+12)
-		self.setFont('HelB',fs)
-		var xoff = self.calcCenter(text,w)
-		self.print(text,x+xoff,y+2)
-		self.restore()
+		console.log(self.translatePos,x,y)
+			//self.save()
+			self.setFont('Hel',fs-1)
+			self.print(title,7,12)
+			self.setFont('HelB',fs)
+			var xoff = self.calcCenter(text,w)
+			self.print(text,xoff,2)
+			//self.restore()
 	}
 
 	self.calcCenter = function(text,width){

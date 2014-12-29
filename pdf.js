@@ -11,7 +11,7 @@ var PDF = function(){
 	self.trailer = {};
 	self.xrefOffsets = [];
 
-	self.debugMode = false;
+	self.debugMode = true;
 	self.debugShift = '';
 	self.debug = function(){
 		if(!self.debugMode) return;
@@ -27,7 +27,11 @@ var PDF = function(){
 	}
 
 	self.load = function(filename,call){
+		call = call || noop
 		self.debug('parseFile',filename)
+		self.buffer = fs.readFileSync(filename)
+		self.parse(self.buffer,call)
+		return;
 		var str = fs.createReadStream(filename);
 		var bufs = [];
 		str.on('data',function(chunk){
@@ -54,11 +58,29 @@ var PDF = function(){
 						return md
 				}else 
 					return md
-				for(var i in md.Kids)
-					self.pages.push(self.getObj(md.Kids[i]))
 			}
 		}
 		return null
+	}
+	
+	self.findObjsByField = function(field,value)
+	{
+		var ret = [];
+		for(var i in self.objects)
+		{
+			var obj = self.objects[i]
+			var md = obj.metadata
+			if(md[field])
+			{
+				if(value)
+				{
+					if(md[field] == value)
+						ret.push(obj)
+				}else 
+					ret.push(obj)
+			}
+		}
+		return ret;
 	}
 
 	self.save = function(file,call)
@@ -82,25 +104,30 @@ var PDF = function(){
 			var s = buffer.slice(ind--).toString()
 			if(s.slice(0,9) == 'startxref')
 			{
-				var p = s.split("\r");
+				console.log('XREF found ',ind)
+				var p = s.replace(/\r\n?/,"\n").split("\n");
 				xrefOff = parseInt(p[1]);
 			}
+			if(ind < -1024) throw 'xref table not found';
 		}
 		self.readXref(buffer,xrefOff,function(){
 			for(var i in self.offsets)
 				if(self.offsets[i].status == 'n')
 				{
 					var b = self.buffer.slice(self.offsets[i].offset)
-					self.objects[i] = new PDFObject(b)
-					if(self.objects[i].metadata.Type == '/Page')
-						self.objects[i] = new Page(b)
+					var obj = new PDFObject(b)
+					if(obj.metadata.Type && obj.metadata.Type.match(/Page$/))
+						obj = new Page(null,obj)
+					self.objects.push(obj)
 				}
+			console.log('Finding pages...')
 			for(var i in self.objects)
 			{
 				var obj = self.objects[i]
 				var md = obj.metadata
 				if(md.Type && md.Type.match(/Pages/))
 				{
+					console.log('Found pages',md)
 					for(var i in md.Kids)
 						self.pages.push(self.getObj(md.Kids[i]))
 				}
@@ -137,7 +164,7 @@ var PDF = function(){
 			ret += raw;
 			offset += raw.length
 		}
-		console.log('encode',offset,self.buffer.length,offset-self.buffer.length,ret.length)
+		//console.log('encode',offset,self.buffer.length,offset-self.buffer.length,ret.length)
 		ret += self.writeXref(ret.length + self.buffer.length)
 		return ret;
 	}
@@ -162,8 +189,12 @@ var PDF = function(){
 		pageIndex.imported = false
 
 		if(clone)
-			page.metadata = self.objects[clone].metadata
-		else
+		{
+			page.metadata = JSON.parse(JSON.stringify(self.objects[clone].metadata));
+			//var md = self.objects[clone].metadata;
+			//for(var k in md)
+			//	page.metadata[k] = md[k]
+		}else
 			page.metadata = {
 				Contents: 	[],
 				CropBox: 	[0,0,612,792],
@@ -216,7 +247,6 @@ var PDF = function(){
 				status: 	b.slice(17,18).toString(),
 				imported:   true
 			}
-			console.log(ind,data)
 			if(!self.offsets[ind] || self.offsets[ind].revision < data.revision)
 				self.offsets[ind] = data
 			b = b.slice(19)
@@ -225,7 +255,7 @@ var PDF = function(){
 			ind++
 		}
 		b = b.slice(8)
-		var xd = self.parseDict(b.toString());
+		var xd = self.parseDict(b);
 		self.trailer = xd;
 		if(xd.Prev)
 			self.readXref(buffer,xd.Prev,call)
@@ -243,7 +273,7 @@ var PDF = function(){
 		{
 			var last = self.offsets[i-1] || { imported: true }
 			var off = self.offsets[i]
-			console.log(i,cb,off.imported,last.imported)
+			//console.log(i,cb,off.imported,last.imported)
 			if(off.imported) continue
 			if(last.imported)
 			{
