@@ -1,16 +1,32 @@
 var ENDL = process.env.ENDL || "\n"
+
+var debugMode = !true;
+var debugShift = '';
+function debugLog(){
+	var args = Array.prototype.slice(arguments)
+	if(!debugMode) return;
+	if(args[0] == '>>>')
+		debugShift += "  "
+	if(args[0] == '<<<')
+		debugShift = debugShift.slice(2)
+	args.unshift(debugShift)
+	//args[0] = debugShift + args[0]
+	console.log.apply(console,arguments)
+}
+
 function dictionaryParser(){
 	var self = this
 
 	self.scanForEnd = function(buffer,offset){
 		var arr = { '<':'>','[':']','(':')' }
-		return findEnd(buffer,offset,buffer[offset],arr[buffer[offset]])
+		var i = buffer.slice(offset,offset+1).toString()
+		return findEnd(buffer,offset,i.charCodeAt(0),arr[i].charCodeAt(0))
 	}
 	self.parse = function(dict,call){
 		var ret = {}
 		call = call || noop
 		//ret = readPart(dict.trim()).val
-		//console.log(typeof dict)
+		debugLog(typeof dict)
 		ret = parseDict(dict,0)
 		//if(!ret) console.trace(ret,dict.toString())
 		call(ret);
@@ -41,14 +57,14 @@ function dictionaryParser(){
 				// /if(typeof val == 'string')// && !val.match(/[\/\[]/))
 				//	val = '@'+val
 				//if(typeof val == 'object')
-				//console.log('PRE ',val)
+				debugLog('PRE ',val)
 				val = self.encode(val)
-				//console.log('POST',val)
+				debugLog('POST',val)
 				if(isArray)
 					ret.push(val.trim())
 				else
 					ret += val
-				//console.log(key,val)
+				debugLog(key,val)
 			}
 		if(isArray) ret = '[' + ret.join(' ') + ']'
 		if(isDict) ret = '<<' + ret + '>>'
@@ -56,19 +72,6 @@ function dictionaryParser(){
 		return ret;
 	}
 	self.isRef = isRef
-}
-var debugMode = true;
-var debugShift = '';
-function debugLog(){
-	var args = Array.prototype.slice(arguments)
-	if(!debugMode) return;
-	if(args[0] == '>>>')
-		debugShift += "  "
-	if(args[0] == '<<<')
-		debugShift = debugShift.slice(2)
-	args.unshift(debugShift)
-	//args[0] = debugShift + args[0]
-	console.log.apply(console,arguments)
 }
 
 function parseDict(buffer,offset){
@@ -79,7 +82,8 @@ function parseDict(buffer,offset){
 	var special = '()<>[]/'
 	var collection = { 
 		60:['(',')'],
-		10:['<','>']
+		10:['<','>'],
+		11:['[',']']
 	}
 	var starts = [];
 	var ends = [];
@@ -110,13 +114,13 @@ function parseDict(buffer,offset){
 		}
 		if(~starts.indexOf(c)) stack++
 		if(~ends.indexOf(c))   stack--
-		//console.log(off,stack,v,c,!!whitespace[v],current)
+		debugLog(off,stack,v,c,!!whitespace[v],current)
 		last = c;
 		off++
 	}while(stack>0)
 
 	var ret = readPart(parts)
-	//console.log(ret)
+	debugLog(ret)
 	function rec(part){
 		if(part.type == 'dict' || part.type == 'array')
 			for(var i in part.value)
@@ -132,13 +136,13 @@ function parseDict(buffer,offset){
 
 	ret = rec(ret)
 
-	//console.log('ret',ret)
+	debugLog('ret',ret)
 	return ret;
 }
 
 function readPart(parts,offset){
-	//console.log(arguments.callee,arguments)
-	//console.log('readPart',parts[offset])
+	debugLog(arguments.callee,arguments)
+	debugLog('readPart',parts[offset])
 	offset = offset || 0
 	if(offset)
 		parts = parts.slice(offset)
@@ -164,7 +168,7 @@ function readPart(parts,offset){
 
 function readRaw(parts,offset)
 {
-	//console.log(arguments.callee,arguments)
+	debugLog(arguments.callee,arguments)
 	offset = offset || 0
 	return {
 		type: 'raw',
@@ -175,7 +179,7 @@ function readRaw(parts,offset)
 
 function readRef(parts,offset)
 {
-	//console.log(arguments.callee,arguments)
+	debugLog(arguments.callee,arguments)
 	offset = offset || 0
 	return {
 		type: 'ref',
@@ -186,14 +190,14 @@ function readRef(parts,offset)
 
 function readArray(parts,offset)
 {
-	//console.log(arguments.callee,arguments)
+	debugLog(arguments.callee,arguments)
 	offset = offset || 0
 	if(offset)
 		parts = parts.slice(offset)
 	var end = findEnd(parts,0,'[',']')
 	parts = parts.slice(1,end-1);
 	var ret = []
-	//console.log(parts,parts.length)
+	debugLog(parts,parts.length)
 	for(var i=0;i<parts.length;)
 	{
 		var v = readPart(parts,i)
@@ -209,14 +213,14 @@ function readArray(parts,offset)
 
 function readDict(parts,offset)
 {
-	//console.log(arguments.callee,arguments)
+	debugLog(arguments.callee,arguments)
 	offset = offset || 0
 	if(offset)
 		parts = parts.slice(offset)
 	var end = findEnd(parts,0,'<','>')
 	parts = parts.slice(2,end-2);
 	var ret = {}
-	//console.log(parts,parts.length)
+	debugLog(parts,parts.length)
 	for(var i=0;i<parts.length;)
 	{
 		var k = readPart(parts,i)
@@ -234,7 +238,7 @@ function readDict(parts,offset)
 
 function readName(parts,offset)
 {
-	//console.log(arguments.callee,arguments)
+	debugLog(arguments.callee,arguments)
 	offset = offset || 0
 	return {
 		type: 'name',
@@ -245,7 +249,7 @@ function readName(parts,offset)
 
 function readHexString(parts,offset)
 {
-	//console.log(arguments.callee,arguments)
+	debugLog(arguments.callee,arguments)
 	offset = offset || 0
 	var end = findEnd(parts,offset,'<','>')
     var hex = parts.slice(offset+1,end-1).join(' ')
@@ -260,7 +264,7 @@ function readHexString(parts,offset)
 
 function readString(parts,offset)
 {
-	//console.log(arguments.callee,arguments)
+	debugLog(arguments.callee,arguments)
 	offset = offset || 0
 	var end = findEnd(parts,offset,'(',')')
 	var str = parts.slice(offset+1,end-1).join(' ')
@@ -273,7 +277,7 @@ function readString(parts,offset)
 }
 
 function findEnd(coll,offset,start,end){
-	//console.log(arguments.callee,arguments)
+	debugLog(arguments.callee,arguments)
 	offset = offset || 0
 	var ind = offset;
 	var ret = 0;
@@ -283,7 +287,7 @@ function findEnd(coll,offset,start,end){
 		if(coll[ind] == end)   stack--
 		ind++
 	}while(stack && offset < coll.length)
-	//console.log('findEnd','ret',offset)
+	debugLog('findEnd','ret',offset)
 	return ind;
 }
 

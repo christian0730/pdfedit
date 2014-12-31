@@ -12,12 +12,17 @@ Install with
 
 Usage: (Sorry, this is all the docs at the moment)
 
-	var PDF = require('pdfedit')
-	var pdf = new pdf()
+	var PDF = require('pdfedit').PDF
+	var pdf = new PDF()
 	pdf.load('formTest.pdf')
+	
+	var str = fs.openWriteStream('formTest_output.pdf')
+	pdf.pipe(str)
+
 	pdf.fillForm({
 		"Address 1 Text Box": "Address 1 New Value",
 		"Country Combo Box": "Country New Value",
 		"Driving License Check Box":"/Yes"
 	})
-	pdf.save('formTest_output.pdf')
+
+
